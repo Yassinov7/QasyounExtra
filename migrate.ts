@@ -3,6 +3,11 @@ import postgres from 'postgres';
 import * as schema from './shared/schema';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Get the directory name using ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function migrate() {
   if (!process.env.DATABASE_URL) {
@@ -13,7 +18,7 @@ async function migrate() {
   try {
     console.log('Connecting to database...');
     const client = postgres(process.env.DATABASE_URL, { 
-      ssl: true,
+      ssl: { rejectUnauthorized: false },
       max: 1
     });
     

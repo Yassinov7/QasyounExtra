@@ -434,10 +434,10 @@ let memStorage: MemStorage = new MemStorage();
 // Initialize the database client if DATABASE_URL is available
 if (process.env.DATABASE_URL) {
   try {
-    // Create a connection pool to Supabase
+    // Create a connection pool to Supabase with SSL certificate verification disabled
     const client = postgres(process.env.DATABASE_URL, { 
       max: 10,
-      ssl: true,
+      ssl: { rejectUnauthorized: false },
       prepare: false,
       types: {
         date: {
