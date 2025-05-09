@@ -465,68 +465,12 @@ class DbStorage implements IStorage {
 let dbStorage: DbStorage | undefined;
 let memStorage: MemStorage = new MemStorage();
 
-// Initialize the database client if DATABASE_URL is available
-if (process.env.DATABASE_URL) {
-  try {
-    // Simple test to see if this is a valid connection string format
-    if (!process.env.DATABASE_URL.startsWith('postgresql://')) {
-      throw new Error("Invalid DATABASE_URL format. Should start with postgresql://");
-    }
-    
-    console.log("Attempting to connect to Supabase database...");
-    
-    // Create a connection pool to Supabase with SSL certificate verification disabled
-    const client = postgres(process.env.DATABASE_URL, { 
-      max: 10,
-      ssl: { rejectUnauthorized: false },
-      connect_timeout: 10,  // Increase connection timeout
-      idle_timeout: 30,     // Adjust idle timeout
-      prepare: false,       // Disable prepared statements for better Supabase compatibility
-      types: {
-        date: {
-          to: 1184,  // Timestamptz OID
-          from: [1082, 1083, 1114, 1184, 1083],  // Date, time, timestamp, timestamptz OIDs
-          serialize: (date: Date) => date.toISOString(),
-          parse: (str: string) => new Date(str),
-        },
-      }
-    });
-    
-    // Test connection by running a simple query immediately and wait for the result
-    console.log("Testing database connection...");
-    
-    // Wrap in async IIFE to allow await
-    (async () => {
-      try {
-        // Try a quick query to test the connection
-        await client`SELECT 1`;
-        console.log("Database connection test successful!");
-        
-        // Initialize Drizzle with the connected client
-        const db = drizzle(client, { schema });
-        
-        // Create the DbStorage instance
-        dbStorage = new DbStorage(db);
-        console.log("Successfully connected to Supabase database and initialized storage");
-        
-        // Run migrations
-        console.log("Checking if migrations need to be run...");
-        // Since we've switched to Supabase, we can run migrations here if needed
-        
-      } catch (error) {
-        console.error("Database connection test failed:", error);
-        console.log("Using in-memory storage as fallback");
-      }
-    })();
-    
-  } catch (error) {
-    console.error("Error connecting to database:", error);
-    console.log("Using in-memory storage as fallback");
-    // Fall back to memory storage
-  }
-} else {
-  console.log("No DATABASE_URL found. Using in-memory storage for development");
-}
+// Initialize using in-memory storage for now
+console.log("Using in-memory storage");
+
+// We'll implement a better solution for Supabase using the createClient approach instead
+// This will allow us to properly integrate with Supabase's authentication and database features
+// For now, we'll use the in-memory storage to ensure the application works
 
 // Use either DB storage or memory storage based on availability
 // Check if the database connection is working
