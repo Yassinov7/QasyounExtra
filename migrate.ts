@@ -16,10 +16,13 @@ async function migrate() {
   }
 
   try {
-    console.log('Connecting to database...');
+    console.log('Connecting to Supabase database...');
     const client = postgres(process.env.DATABASE_URL, { 
       ssl: { rejectUnauthorized: false },
-      max: 1
+      max: 1,
+      connect_timeout: 15,  // Increase connection timeout
+      idle_timeout: 30,     // Adjust idle timeout
+      prepare: false        // Disable prepared statements for better Supabase compatibility
     });
     
     const db = drizzle(client, { schema });
@@ -117,6 +120,39 @@ async function migrate() {
           console.error(`Error creating test user ${user.username}:`, error);
         }
       }
+    }
+
+    // Verify tables were created
+    console.log('Verifying database tables...');
+    try {
+      const tablesResult = await client`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public'
+      `;
+      
+      console.log('Tables in database:');
+      tablesResult.forEach((row: any) => {
+        console.log(`- ${row.table_name}`);
+      });
+      
+      // Check for expected tables
+      const expectedTables = [
+        'universities', 'users', 'categories', 'courses', 
+        'materials', 'enrollments', 'reviews', 'messages'
+      ];
+      
+      const missingTables = expectedTables.filter(
+        table => !tablesResult.some((row: any) => row.table_name === table)
+      );
+      
+      if (missingTables.length > 0) {
+        console.warn('Warning: Some expected tables are missing:', missingTables);
+      } else {
+        console.log('All expected tables are present in the database.');
+      }
+    } catch (error) {
+      console.error('Error verifying tables:', error);
     }
 
     console.log('Migration completed successfully');

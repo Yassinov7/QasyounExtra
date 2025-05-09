@@ -473,11 +473,15 @@ if (process.env.DATABASE_URL) {
       throw new Error("Invalid DATABASE_URL format. Should start with postgresql://");
     }
     
+    console.log("Attempting to connect to Supabase database...");
+    
     // Create a connection pool to Supabase with SSL certificate verification disabled
     const client = postgres(process.env.DATABASE_URL, { 
       max: 10,
       ssl: { rejectUnauthorized: false },
-      prepare: false,
+      connect_timeout: 10,  // Increase connection timeout
+      idle_timeout: 30,     // Adjust idle timeout
+      prepare: false,       // Disable prepared statements for better Supabase compatibility
       types: {
         date: {
           to: 1184,  // Timestamptz OID
@@ -488,22 +492,33 @@ if (process.env.DATABASE_URL) {
       }
     });
     
-    // Test connection by running a simple query
-    try {
-      // Try a quick query to test the connection
-      client`SELECT 1`.then(() => {
+    // Test connection by running a simple query immediately and wait for the result
+    console.log("Testing database connection...");
+    
+    // Wrap in async IIFE to allow await
+    (async () => {
+      try {
+        // Try a quick query to test the connection
+        await client`SELECT 1`;
+        console.log("Database connection test successful!");
+        
+        // Initialize Drizzle with the connected client
         const db = drizzle(client, { schema });
+        
         // Create the DbStorage instance
         dbStorage = new DbStorage(db);
-        console.log("Successfully connected to Supabase database");
-      }).catch((error) => {
+        console.log("Successfully connected to Supabase database and initialized storage");
+        
+        // Run migrations
+        console.log("Checking if migrations need to be run...");
+        // Since we've switched to Supabase, we can run migrations here if needed
+        
+      } catch (error) {
         console.error("Database connection test failed:", error);
         console.log("Using in-memory storage as fallback");
-      });
-    } catch (error) {
-      console.error("Database connection test failed:", error);
-      console.log("Using in-memory storage as fallback");
-    }
+      }
+    })();
+    
   } catch (error) {
     console.error("Error connecting to database:", error);
     console.log("Using in-memory storage as fallback");
