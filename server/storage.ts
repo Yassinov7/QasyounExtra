@@ -151,6 +151,10 @@ export class MemStorage implements IStorage {
       profilePicture: insertUser.profilePicture || null,
       bio: insertUser.bio || null,
       experience: insertUser.experience || null,
+      universityId: insertUser.universityId || null,
+      faculty: insertUser.faculty || null,
+      academicYear: insertUser.academicYear || null,
+      studentId: insertUser.studentId || null,
       createdAt: now
     };
     this.users.set(id, user);
@@ -213,7 +217,12 @@ export class MemStorage implements IStorage {
       createdAt: now,
       thumbnail: insertCourse.thumbnail || null,
       categoryId: insertCourse.categoryId || null,
-      teacherId: insertCourse.teacherId || null
+      teacherId: insertCourse.teacherId || null,
+      universityId: insertCourse.universityId || null,
+      faculty: insertCourse.faculty || null,
+      academicYear: insertCourse.academicYear || null,
+      courseCode: insertCourse.courseCode || null,
+      isOfficial: insertCourse.isOfficial || false
     };
     this.courses.set(id, course);
     return course;
@@ -443,6 +452,12 @@ class DbStorage implements IStorage {
 
   async markMessageAsRead(messageId: number): Promise<void> {
     await this.db.update(messages).set({ isRead: true }).where(eq(messages.id, messageId));
+  }
+  
+  // University operations
+  async createUniversity(university: InsertUniversity): Promise<University> {
+    const result = await this.db.insert(universities).values(university).returning();
+    return result[0];
   }
 }
 
