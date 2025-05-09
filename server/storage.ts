@@ -61,6 +61,7 @@ export class MemStorage implements IStorage {
   private enrollments: Map<number, Enrollment>;
   private reviews: Map<number, Review>;
   private messages: Map<number, Message>;
+  private universities: Map<number, University>;
   
   private currentUserId: number;
   private currentCategoryId: number;
@@ -69,6 +70,7 @@ export class MemStorage implements IStorage {
   private currentEnrollmentId: number;
   private currentReviewId: number;
   private currentMessageId: number;
+  private currentUniversityId: number;
 
   constructor() {
     this.users = new Map();
@@ -78,6 +80,7 @@ export class MemStorage implements IStorage {
     this.enrollments = new Map();
     this.reviews = new Map();
     this.messages = new Map();
+    this.universities = new Map();
     
     this.currentUserId = 1;
     this.currentCategoryId = 1;
@@ -86,6 +89,7 @@ export class MemStorage implements IStorage {
     this.currentEnrollmentId = 1;
     this.currentReviewId = 1;
     this.currentMessageId = 1;
+    this.currentUniversityId = 1;
     
     // Initialize with sample data
     this.initializeData();
@@ -303,6 +307,21 @@ export class MemStorage implements IStorage {
       this.messages.set(messageId, message);
     }
   }
+
+  // University operations
+  async createUniversity(insertUniversity: InsertUniversity): Promise<University> {
+    const id = this.currentUniversityId++;
+    const now = new Date();
+    const university: University = { 
+      ...insertUniversity, 
+      id, 
+      createdAt: now,
+      logo: insertUniversity.logo || null,
+      website: insertUniversity.website || null 
+    };
+    this.universities.set(id, university);
+    return university;
+  }
 }
 
 // Database implementation for Supabase
@@ -434,6 +453,11 @@ let memStorage: MemStorage = new MemStorage();
 // Initialize the database client if DATABASE_URL is available
 if (process.env.DATABASE_URL) {
   try {
+    // Simple test to see if this is a valid connection string format
+    if (!process.env.DATABASE_URL.startsWith('postgresql://')) {
+      throw new Error("Invalid DATABASE_URL format. Should start with postgresql://");
+    }
+    
     // Create a connection pool to Supabase with SSL certificate verification disabled
     const client = postgres(process.env.DATABASE_URL, { 
       max: 10,
@@ -449,11 +473,22 @@ if (process.env.DATABASE_URL) {
       }
     });
     
-    const db = drizzle(client, { schema });
-    
-    // Create the DbStorage instance
-    dbStorage = new DbStorage(db);
-    console.log("Successfully connected to Supabase database");
+    // Test connection by running a simple query
+    try {
+      // Try a quick query to test the connection
+      client`SELECT 1`.then(() => {
+        const db = drizzle(client, { schema });
+        // Create the DbStorage instance
+        dbStorage = new DbStorage(db);
+        console.log("Successfully connected to Supabase database");
+      }).catch((error) => {
+        console.error("Database connection test failed:", error);
+        console.log("Using in-memory storage as fallback");
+      });
+    } catch (error) {
+      console.error("Database connection test failed:", error);
+      console.log("Using in-memory storage as fallback");
+    }
   } catch (error) {
     console.error("Error connecting to database:", error);
     console.log("Using in-memory storage as fallback");
@@ -464,4 +499,192 @@ if (process.env.DATABASE_URL) {
 }
 
 // Use either DB storage or memory storage based on availability
+// Check if the database connection is working
 export const storage = dbStorage || memStorage;
+
+// Add University operations methods to IStorage
+export interface IStorage {
+  // User operations
+  getUser(id: number): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  getTeachers(): Promise<User[]>;
+  
+  // Category operations
+  getCategories(): Promise<Category[]>;
+  getCategoryById(id: number): Promise<Category | undefined>;
+  createCategory(category: InsertCategory): Promise<Category>;
+  
+  // Course operations
+  getCourses(): Promise<Course[]>;
+  getCourseById(id: number): Promise<Course | undefined>;
+  getCoursesByCategory(categoryId: number): Promise<Course[]>;
+  getCoursesByTeacher(teacherId: number): Promise<Course[]>;
+  createCourse(course: InsertCourse): Promise<Course>;
+  
+  // Material operations
+  getMaterialsByCourse(courseId: number): Promise<Material[]>;
+  createMaterial(material: InsertMaterial): Promise<Material>;
+  
+  // Enrollment operations
+  getEnrollmentsByStudent(studentId: number): Promise<Enrollment[]>;
+  getEnrollmentsByCourse(courseId: number): Promise<Enrollment[]>;
+  createEnrollment(enrollment: InsertEnrollment): Promise<Enrollment>;
+  
+  // Review operations
+  getReviewsByCourse(courseId: number): Promise<Review[]>;
+  createReview(review: InsertReview): Promise<Review>;
+  
+  // Message operations
+  getMessagesByUser(userId: number): Promise<Message[]>;
+  createMessage(message: InsertMessage): Promise<Message>;
+  markMessageAsRead(messageId: number): Promise<void>;
+  
+  // University operations
+  createUniversity(university: InsertUniversity): Promise<University>;
+}
+
+// Add more sample in-memory data for development if we're using the memory storage
+if (!dbStorage) {
+  console.log("Adding sample data to in-memory storage for development");
+  
+  // Add sample data immediately with explicit waiting for promises
+  const initializeData = async () => {
+    try {
+      // Add sample university
+      const damUniversity = await memStorage.createUniversity({
+        name: 'جامعة دمشق',
+        location: 'دمشق، سوريا',
+        logo: 'https://upload.wikimedia.org/wikipedia/ar/thumb/3/31/%D8%AC%D8%A7%D9%85%D8%B9%D8%A9_%D8%AF%D9%85%D8%B4%D9%82.png/220px-%D8%AC%D8%A7%D9%85%D8%B9%D8%A9_%D8%AF%D9%85%D8%B4%D9%82.png',
+        website: 'http://damascusuniversity.edu.sy/'
+      });
+
+      // Add sample users
+      const adminUser = await memStorage.createUser({
+        username: 'admin',
+        email: 'admin@qasyounextra.com',
+        password: 'adminpassword', // In a real app, this would be hashed
+        role: 'admin',
+        fullName: 'مدير النظام',
+        bio: 'مدير منصة قاسيون إكسترا'
+      });
+
+      const teacherUser = await memStorage.createUser({
+        username: 'teacher',
+        email: 'teacher@qasyounextra.com',
+        password: 'teacherpassword', // In a real app, this would be hashed
+        role: 'teacher',
+        fullName: 'أستاذ نموذجي',
+        bio: 'أستاذ في كلية الهندسة المعلوماتية',
+        universityId: damUniversity.id,
+        faculty: 'engineering'
+      });
+
+      const studentUser = await memStorage.createUser({
+        username: 'student',
+        email: 'student@qasyounextra.com',
+        password: 'studentpassword', // In a real app, this would be hashed
+        role: 'student',
+        fullName: 'طالب نموذجي',
+        universityId: damUniversity.id,
+        faculty: 'engineering',
+        academicYear: 'third',
+        studentId: '12345'
+      });
+
+      // Add sample categories
+      const mathCategory = await memStorage.createCategory({
+        name: 'الرياضيات',
+        description: 'دروس في الرياضيات والجبر والهندسة',
+        icon: 'calculator',
+        color: '#4C9AFF'
+      });
+
+      const csCategory = await memStorage.createCategory({
+        name: 'علوم الحاسوب',
+        description: 'دروس في البرمجة وهندسة البرمجيات وقواعد البيانات',
+        icon: 'code',
+        color: '#6554C0'
+      });
+
+      // Add sample courses
+      const mathCourse = await memStorage.createCourse({
+        title: 'التفاضل والتكامل المتقدم',
+        description: 'دورة متقدمة في التفاضل والتكامل للسنة الثالثة في كلية الهندسة',
+        price: 25000,
+        level: 'متقدم',
+        categoryId: mathCategory.id,
+        teacherId: teacherUser.id,
+        universityId: damUniversity.id,
+        faculty: 'engineering',
+        academicYear: 'third',
+        courseCode: 'MATH301',
+        isOfficial: true
+      });
+
+      const programmingCourse = await memStorage.createCourse({
+        title: 'مقدمة في البرمجة بلغة جافا',
+        description: 'دورة مبتدئة في برمجة الجافا لطلاب السنة الأولى',
+        price: 15000,
+        level: 'مبتدئ',
+        categoryId: csCategory.id,
+        teacherId: teacherUser.id,
+        universityId: damUniversity.id,
+        faculty: 'engineering',
+        academicYear: 'first',
+        courseCode: 'CS101',
+        isOfficial: true
+      });
+
+      // Add sample materials
+      await memStorage.createMaterial({
+        courseId: mathCourse.id,
+        title: 'محاضرة 1: مقدمة في التفاضل',
+        type: 'video',
+        url: 'https://example.com/video1.mp4'
+      });
+
+      await memStorage.createMaterial({
+        courseId: mathCourse.id,
+        title: 'ملخص المحاضرة الأولى',
+        type: 'pdf',
+        url: 'https://example.com/notes1.pdf'
+      });
+
+      // Add sample enrollment
+      await memStorage.createEnrollment({
+        studentId: studentUser.id,
+        courseId: mathCourse.id
+      });
+
+      // Add sample review
+      await memStorage.createReview({
+        studentId: studentUser.id,
+        courseId: mathCourse.id,
+        rating: 5,
+        comment: 'دورة ممتازة ومفيدة جداً'
+      });
+
+      // Add sample messages
+      await memStorage.createMessage({
+        senderId: studentUser.id,
+        receiverId: teacherUser.id,
+        content: 'السلام عليكم، هل يمكنني الحصول على معلومات إضافية حول الدورة؟'
+      });
+
+      await memStorage.createMessage({
+        senderId: teacherUser.id,
+        receiverId: studentUser.id,
+        content: 'وعليكم السلام، بالتأكيد! ما هي المعلومات التي تبحث عنها؟'
+      });
+      
+      console.log("Sample data initialization completed");
+    } catch (error) {
+      console.error("Error initializing sample data:", error);
+    }
+  };
+
+  // Execute the async function
+  initializeData();
+}
