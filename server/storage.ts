@@ -5,13 +5,14 @@ import {
   materials, Material, InsertMaterial,
   enrollments, Enrollment, InsertEnrollment,
   reviews, Review, InsertReview,
-  messages, Message, InsertMessage
+  messages, Message, InsertMessage,
+  universities, University, InsertUniversity
 } from "@shared/schema";
-import { neon, NeonQueryFunction } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import * as schema from "@shared/schema";
 import { eq } from "drizzle-orm/expressions";
-import { NeonHttpDatabase } from "drizzle-orm/neon-http";
+import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 export interface IStorage {
   // User operations
@@ -304,11 +305,11 @@ export class MemStorage implements IStorage {
   }
 }
 
-// Database implementation for Supabase/Neon
+// Database implementation for Supabase
 class DbStorage implements IStorage {
-  private db: NeonHttpDatabase<typeof schema>;
+  private db: PostgresJsDatabase<typeof schema>;
 
-  constructor(db: NeonHttpDatabase<typeof schema>) {
+  constructor(db: PostgresJsDatabase<typeof schema>) {
     this.db = db;
   }
 
@@ -433,8 +434,22 @@ let memStorage: MemStorage = new MemStorage();
 // Initialize the database client if DATABASE_URL is available
 if (process.env.DATABASE_URL) {
   try {
-    const sql = neon(process.env.DATABASE_URL);
-    const db = drizzle(sql, { schema });
+    // Create a connection pool to Supabase
+    const client = postgres(process.env.DATABASE_URL, { 
+      max: 10,
+      ssl: true,
+      prepare: false,
+      types: {
+        date: {
+          to: 1184,  // Timestamptz OID
+          from: [1082, 1083, 1114, 1184, 1083],  // Date, time, timestamp, timestamptz OIDs
+          serialize: (date: Date) => date.toISOString(),
+          parse: (str: string) => new Date(str),
+        },
+      }
+    });
+    
+    const db = drizzle(client, { schema });
     
     // Create the DbStorage instance
     dbStorage = new DbStorage(db);
