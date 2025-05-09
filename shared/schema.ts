@@ -5,6 +5,25 @@ import { z } from "zod";
 // Define user roles
 export const userRoleEnum = pgEnum('user_role', ['student', 'teacher', 'admin']);
 
+// Define university related enums
+export const universityFacultyEnum = pgEnum('university_faculty', [
+  'engineering', 'medicine', 'science', 'arts', 'business', 'law', 'education', 'other'
+]);
+
+export const academicYearEnum = pgEnum('academic_year', [
+  'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'graduate'
+]);
+
+// Universities table
+export const universities = pgTable("universities", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  location: text("location").notNull(),
+  logo: text("logo"),
+  website: text("website"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Users table
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -17,6 +36,10 @@ export const users = pgTable("users", {
   profilePicture: text("profile_picture"),
   bio: text("bio"),
   experience: text("experience"),
+  universityId: integer("university_id").references(() => universities.id),
+  faculty: universityFacultyEnum("faculty"),
+  academicYear: academicYearEnum("academic_year"),
+  studentId: text("student_id"), // University student ID
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -38,6 +61,11 @@ export const courses = pgTable("courses", {
   price: integer("price").notNull(),
   categoryId: integer("category_id").references(() => categories.id),
   teacherId: integer("teacher_id").references(() => users.id),
+  universityId: integer("university_id").references(() => universities.id),
+  faculty: universityFacultyEnum("faculty"),
+  academicYear: academicYearEnum("academic_year"),
+  isOfficial: boolean("is_official").default(false), // If it's an official university course
+  courseCode: text("course_code"), // University course code
   level: text("level").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -82,6 +110,11 @@ export const messages = pgTable("messages", {
 });
 
 // Create insert schemas
+export const insertUniversitySchema = createInsertSchema(universities).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   uuid: true,
@@ -118,6 +151,9 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
 });
 
 // Create types
+export type InsertUniversity = z.infer<typeof insertUniversitySchema>;
+export type University = typeof universities.$inferSelect;
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 

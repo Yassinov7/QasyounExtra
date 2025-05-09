@@ -433,21 +433,19 @@ let memStorage: MemStorage = new MemStorage();
 // Initialize the database client if DATABASE_URL is available
 if (process.env.DATABASE_URL) {
   try {
-    // For now, let's fall back to memory storage and log the connection string issue
-    console.log("Using in-memory storage for development");
-    // When ready to connect to database, uncomment the following code:
-    /*
     const sql = neon(process.env.DATABASE_URL);
     const db = drizzle(sql, { schema });
     
     // Create the DbStorage instance
     dbStorage = new DbStorage(db);
-    console.log("Successfully connected to Neon database");
-    */
+    console.log("Successfully connected to Supabase database");
   } catch (error) {
     console.error("Error connecting to database:", error);
+    console.log("Using in-memory storage as fallback");
     // Fall back to memory storage
   }
+} else {
+  console.log("No DATABASE_URL found. Using in-memory storage for development");
 }
 
 // Use either DB storage or memory storage based on availability
